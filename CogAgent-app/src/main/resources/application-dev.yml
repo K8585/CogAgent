@@ -1,0 +1,32 @@
+spring:
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/cog_agent?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: ${MYSQL_PASSWORD:}
+
+  ai:
+    openai:
+      api-key: ${DEEPSEEK_API_KEY:}
+      base-url: "https://api.deepseek.com"
+
+    qwen:
+      embedding:
+        api-key: ${DASH_SCOPE_API_KEY:}
+        base-url: ${QWEN_EMBEDDING_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode}
+        model: ${QWEN_EMBEDDING_MODEL:text-embedding-v3}
+
+milvus:
+  enabled: false
+  host: localhost
+  port: 19530
+
+logging:
+  level:
+    com.agent.platform: info
+    org.springframework.ai: info
