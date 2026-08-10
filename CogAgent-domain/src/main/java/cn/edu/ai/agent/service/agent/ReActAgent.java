@@ -1,5 +1,8 @@
 package cn.edu.ai.agent.service.agent;
 
+import cn.edu.ai.agent.service.tool.BaseTool;
+import cn.edu.ai.agent.service.tool.ToolRegistry;
+import cn.edu.ai.agent.service.tool.ToolRouter;
 import cn.edu.ai.api.dto.ChatResponse;
 import cn.edu.ai.infrastructure.llm.ModelRouter;
 import cn.edu.ai.infrastructure.trace.TraceService;
@@ -32,6 +35,8 @@ public class ReActAgent {
 
     private final ModelRouter modelRouter;
     private final TraceService traceService;
+    private final ToolRegistry toolRegistry;
+    private final ToolRouter toolRouter;
 
     @Value("${agent.orchestrator.max-iterations:10}")
     private int maxIterations;
@@ -132,18 +137,21 @@ public class ReActAgent {
                 String toolInput = actionMatcher.group(2).trim();
                 log.info("ReAct 调用工具: tool={}, input={}", toolName, toolInput);
 
+                BaseTool.ToolResult toolResult = toolRouter.route(toolName, toolInput);
                 usedTools.add(toolName);
-                String toolResult = null;
+                String stepResult = toolResult.getSuccess() ? toolResult.getOutput() : "工具调用失败：" + toolResult.getOutput();
 
                 thinkingSteps.add(ChatResponse.ThinkingStep.builder()
                         .step(i + 1)
                         .thought(thought)
                         .action(toolName + ":{" + toolInput + "}")
-                        .stepResult(toolResult)
+                        .stepResult(stepResult)
                         .build());
                 conversationBuffer.append(llmOutput).append("\n");
-                conversationBuffer.append("stepResult: ").append(toolResult).append("\n\n");
-                traceService.addSpan(traceId, "tool_call", Map.of("tool", toolName));
+                conversationBuffer.append("stepResult: ").append(stepResult).append("\n\n");
+                traceService.addSpan(traceId, "tool_call",
+                        Map.of("tool", toolName, "success", toolResult.getSuccess(),
+                                "elapsed_ms", toolResult.getElapsedMs()));
             } else {
                 log.warn("LLM 输出格式异常，无法解析 Action 或 Final Answer");
                 return ReActResult.builder()

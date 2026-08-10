@@ -1,5 +1,8 @@
 package cn.edu.ai.agent.service.agent;
 
+import cn.edu.ai.agent.service.tool.BaseTool;
+import cn.edu.ai.agent.service.tool.ToolRegistry;
+import cn.edu.ai.agent.service.tool.ToolRouter;
 import cn.edu.ai.api.dto.ChatResponse;
 import cn.edu.ai.infrastructure.llm.ModelRouter;
 import cn.edu.ai.infrastructure.trace.TraceService;
@@ -32,6 +35,8 @@ public class PlannerAgent {
 
     private final TraceService traceService;
     private final ModelRouter modelRouter;
+    private final ToolRegistry toolRegistry;
+    private final ToolRouter toolRouter;
 
     private static final String PLAN_PROMPT = """
             你是一个任务规划专家。请将用户的复杂问题分解为可执行的步骤计划。
@@ -78,7 +83,7 @@ public class PlannerAgent {
     public PlanResult execute(String query, String context, List<String> availableTools, String traceId) {
         log.info("Planner Agent 开始执行: query={}", query);
 
-        String toolDescriptions = null;
+        String toolDescriptions = toolRegistry.buildToolDescriptions(availableTools);
 
         traceService.addSpan(traceId, "planner_planning", Map.of("query", query));
         List<PlanStep> plan = generatePlan(query, toolDescriptions);
@@ -94,21 +99,23 @@ public class PlannerAgent {
             traceService.addSpan(traceId, "planner_step_" + (i + 1),
                     Map.of("description", step.getDescription(), "tool", step.getToolName()));
 
-            String toolResult;
+            String stepResult;
             if (!"none".equalsIgnoreCase(step.getToolName())) {
-                toolResult = null;
+                BaseTool.ToolResult toolResult = toolRouter.route(step.getToolName(), step.getArgs());
+                stepResult = toolResult.getSuccess() ? toolResult.getOutput() : "执行失败: " + toolResult.getOutput();
+                usedTools.add(step.getToolName());
             } else {
-                toolResult = "该步骤不需要工具调用";
+                stepResult = "该步骤不需要工具调用";
             }
 
             results.append("步骤 ").append(i + 1).append(": ")
-                    .append(step.getDescription()).append("\n结果: ").append(toolResult).append("\n\n");
+                    .append(step.getDescription()).append("\n结果: ").append(stepResult).append("\n\n");
 
             thinkingSteps.add(ChatResponse.ThinkingStep.builder()
                     .step(i + 1)
                     .thought(step.getDescription())
                     .action(step.getToolName())
-                    .stepResult(toolResult)
+                    .stepResult(stepResult)
                     .build());
         }
 

@@ -23,11 +23,15 @@ public class ModelRouter {
     @Qualifier("fallbackChatModel")
     private final OpenAiChatModel fallbackModel;
 
+    private final CircuitBreaker circuitBreaker;
+
     public ModelRouter(
             @Qualifier("primaryChatModel") OpenAiChatModel primaryModel,
-            @Qualifier("fallbackChatModel") OpenAiChatModel fallbackModel) {
+            @Qualifier("fallbackChatModel") OpenAiChatModel fallbackModel,
+            CircuitBreaker circuitBreaker) {
         this.primaryModel = primaryModel;
         this.fallbackModel = fallbackModel;
+        this.circuitBreaker = circuitBreaker;
     }
 
     /**
@@ -35,14 +39,28 @@ public class ModelRouter {
      */
     public ChatResponse call(Prompt prompt, String forceModel){
         ChatModel chatModel = selectModel(forceModel);
-        ChatResponse response = chatModel.call(prompt);
-        return response;
+        try {
+            ChatResponse response = chatModel.call(prompt);
+            circuitBreaker.recordSuccess();
+            log.debug("模型调用成功，使用模型: {}", getModelName(chatModel));
+            return response;
+        } catch (Exception e) {
+            circuitBreaker.recordFailure();
+            log.warn("主模型调用失败，尝试降级: {}", e.getMessage());
+            return fallbackModel.call(prompt);
+        }
     }
 
     /**
      * 根据条件选择模型
      */
     private ChatModel selectModel(String forceModel) {
+
+        if (!circuitBreaker.allowRequest()) {
+            log.info("熔断器开启，降级到备用模型");
+            return fallbackModel;
+        }
+
         if (forceModel != null) {
             if (forceModel.contains("flash")) {
                 return fallbackModel;
@@ -51,5 +69,12 @@ public class ModelRouter {
         }
 
         return primaryModel;
+    }
+
+    private String getModelName(ChatModel model) {
+        if (model == primaryModel) {
+            return "primary (deepseek-v4-pro)";
+        }
+        return "fallback (deepseek-v4-flash)";
     }
 }
