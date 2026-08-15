@@ -84,6 +84,16 @@ milvus:
 
 # Agent 平台配置
 agent:
+  rag:
+    chunk-size: 512
+    chunk-overlap: 64
+    top-k: 5
+    rerank-top-n: 3
+    similarity-threshold: 0.5
+  circuit-breaker:
+    failure-threshold: 5
+    success-threshold: 3
+    timeout-seconds: 30
 
 
 # 日志配置
