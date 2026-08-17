@@ -94,6 +94,12 @@ agent:
     failure-threshold: 5
     success-threshold: 3
     timeout-seconds: 30
+  memory:
+    short-term:
+      max-turns: 20
+      ttl-minutes: 60
+    long-term:
+      enabled: true
 
 
 # 日志配置
