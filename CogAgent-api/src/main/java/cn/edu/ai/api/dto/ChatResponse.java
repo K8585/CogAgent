@@ -28,6 +28,9 @@ public class ChatResponse {
     /** 使用的工具列表 */
     private List<String> usedTools;
 
+    /** RAG 检索的来源文档 */
+    private List<SourceDocument> sources;
+
     /** 使用的模型信息 */
     private String model;
 
@@ -58,4 +61,13 @@ public class ChatResponse {
         private int totalTokens;
     }
 
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SourceDocument {
+        private String documentId;
+        private String content;
+        private double score;
+    }
 }

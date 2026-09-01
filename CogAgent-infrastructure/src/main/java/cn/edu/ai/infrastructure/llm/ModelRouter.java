@@ -7,6 +7,7 @@ import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 
 /**
  * 模型路由器
@@ -35,7 +36,7 @@ public class ModelRouter {
     }
 
     /**
-     * 调用模型
+     * 调用模型，自带熔断降级
      */
     public ChatResponse call(Prompt prompt, String forceModel){
         ChatModel chatModel = selectModel(forceModel);
@@ -49,6 +50,29 @@ public class ModelRouter {
             log.warn("主模型调用失败，尝试降级: {}", e.getMessage());
             return fallbackModel.call(prompt);
         }
+    }
+
+    /**
+     * 流式调用模型，自带熔断降级
+     */
+    public Flux<ChatResponse> stream(Prompt prompt, String forceModel) {
+        ChatModel selectedModel = selectModel(forceModel);
+
+        return Flux.defer(() -> {   // 外部开始请求数据时再执行内部代码，避免不必要的计算，支持每个请求独立执行(并发安全)
+            try {
+                return selectedModel.stream(prompt)
+                        .doOnNext(r -> circuitBreaker.recordSuccess())
+                        .onErrorResume(e -> {
+                            circuitBreaker.recordFailure();
+                            log.warn("流式调用主模型失败，降级到备用模型: {}", e.getMessage());
+                            return fallbackModel.stream(prompt);
+                        });
+            } catch (Exception e) {
+                circuitBreaker.recordFailure();
+                log.warn("流式调用启动失败，降级到备用模型: {}", e.getMessage());
+                return fallbackModel.stream(prompt);
+            }
+        });
     }
 
     /**
