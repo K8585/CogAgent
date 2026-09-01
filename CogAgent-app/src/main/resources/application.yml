@@ -72,7 +72,7 @@ mybatis-plus:
 
 # Milvus 向量数据库配置
 milvus:
-  enabled: false
+  enabled: true
   host: ${MILVUS_HOST:localhost}
   port: ${MILVUS_PORT:19530}
   collection-name: ${MILVUS_COLLECTION:agent_documents}

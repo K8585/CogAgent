@@ -22,7 +22,7 @@ spring:
         model: ${QWEN_EMBEDDING_MODEL:text-embedding-v3}
 
 milvus:
-  enabled: false
+  enabled: true
   host: localhost
   port: 19530
 

@@ -77,7 +77,7 @@ public abstract class BaseTool {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public class ToolResult {
+    public static class ToolResult {
 
         private String toolName;
         private Boolean success;
