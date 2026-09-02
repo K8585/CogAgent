@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
+import java.time.Duration;
+
 /**
  * 模型路由器
  * 职责：
@@ -61,6 +63,7 @@ public class ModelRouter {
         return Flux.defer(() -> {   // 外部开始请求数据时再执行内部代码，避免不必要的计算，支持每个请求独立执行(并发安全)
             try {
                 return selectedModel.stream(prompt)
+                        .timeout(Duration.ofSeconds(30))
                         .doOnNext(r -> circuitBreaker.recordSuccess())
                         .onErrorResume(e -> {
                             circuitBreaker.recordFailure();

@@ -86,7 +86,7 @@ public class ReActAgent {
     public ReActResult execute(String query, String context, List<String> availableTools, String traceId) {
         log.info("ReAct Agent 开始执行: query={}", query);
 
-        String toolDescriptions = null;
+        String toolDescriptions = toolRegistry.buildToolDescriptions(availableTools);
         String systemPrompt = String.format(REACT_SYSTEM_PROMPT, toolDescriptions);
 
         StringBuilder conversationBuffer = new StringBuilder();
