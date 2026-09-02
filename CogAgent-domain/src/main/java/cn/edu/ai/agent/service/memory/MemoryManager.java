@@ -70,7 +70,7 @@ public class MemoryManager {
         }
 
         // 长期记忆召回：向量检索相关摘要
-        if (longTermEnabled) {
+        if (longTermEnabled && history.size() >= maxTurns * 2) {
             try {
                 List<String> memories = longTermMemory.recallByQuery(query, longTermTopK);
                 if (!memories.isEmpty()) {
