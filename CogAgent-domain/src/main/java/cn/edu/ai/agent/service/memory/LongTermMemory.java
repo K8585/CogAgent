@@ -3,6 +3,7 @@ package cn.edu.ai.agent.service.memory;
 import cn.edu.ai.infrastructure.cache.RedisCacheService;
 import cn.edu.ai.infrastructure.vectordb.MilvusService;
 import io.milvus.grpc.SearchResults;
+import io.milvus.response.SearchResultsWrapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.embedding.EmbeddingModel;
@@ -104,6 +105,45 @@ public class LongTermMemory {
     public SearchResults recall(List<Float> queryEmbedding, int topK) {
         log.debug("检索长期记忆: topK={}", topK);
         return milvusService.searchSimilar(queryEmbedding, topK);
+    }
+
+    /**
+     * 根据查询内容召回相关的长期记忆
+     *
+     * @param query 查询文本
+     * @param topK  返回数量
+     * @return 召回的长期记忆内容列表
+     */
+    public List<String> recallByQuery(String query, int topK) {
+        if (query == null || query.isBlank()) return List.of();
+
+        float[] values = embeddingModel.embed(query);
+        List<Float> vector = new ArrayList<>(values.length);
+        for (float value : values) {
+            vector.add(value);
+        }
+
+        return parseContents(recall(vector, topK));
+    }
+
+    /**
+     * 解析 Milvus 搜索结果，提取 content 字段
+     */
+    private List<String> parseContents(SearchResults raw) {
+        if (raw == null || raw.getResults() == null) return List.of();
+
+        SearchResultsWrapper wrapper = new SearchResultsWrapper(raw.getResults());
+        List<String> contents = new ArrayList<>();
+        if (wrapper.getRowRecords(0) == null || wrapper.getRowRecords(0).isEmpty()) return contents;
+
+        for (int i = 0; i < wrapper.getRowRecords(0).size(); i++) {
+            Map<String, Object> fields = wrapper.getRowRecords(0).get(i).getFieldValues();
+            Object content = fields.get("content");
+            if (content != null && !content.toString().isBlank()) {
+                contents.add(content.toString());
+            }
+        }
+        return contents;
     }
 
     /**

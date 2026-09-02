@@ -55,8 +55,12 @@ public class AgentOrchestrator {
         // 追踪完整链路
         String traceId = traceService.startTrace("chat");
         try{
-            // 保存对话历史
+            // 召回记忆上下文
             String conversationId = generateConversationId(request.getConversationId());
+            traceService.addSpan(traceId, "memory_recall", Map.of("message", request.getMessage()));
+            String memoryContext = memoryManager.recallMemoryContext(conversationId, request.getMessage());
+
+            // 保存对话历史
             memoryManager.saveUserMessage(conversationId, request.getMessage());
 
             traceService.addSpan(traceId, "intent_recognition", Map.of("message", request.getMessage()));
@@ -72,8 +76,11 @@ public class AgentOrchestrator {
                 ragContext = performRAG(request.getMessage(), sources, traceId);
             }
 
+            // 合并上下文
+            String context = mergeContext(memoryContext, ragContext);
+
             traceService.addSpan(traceId, "agent_execution", Map.of("mode", mode.name(), "intent", intent.getIntentType()));
-            ChatResponse response = dispatchToAgent(mode, request, ragContext, traceId);
+            ChatResponse response = dispatchToAgent(mode, request, context, traceId);
             response.setConversationId(conversationId);
             response.setSources(sources.isEmpty() ? null : sources);
             response.setTraceId(traceId);
@@ -101,8 +108,12 @@ public class AgentOrchestrator {
         // 追踪一次完整的请求链路
         String traceId = traceService.startTrace("chat_stream");
         try {
-            // 保存对话历史
+            // 召回记忆上下文
             String conversationId = generateConversationId(request.getConversationId());
+            traceService.addSpan(traceId, "memory_recall", Map.of("message", request.getMessage()));
+            String memoryContext = memoryManager.recallMemoryContext(conversationId, request.getMessage());
+
+            // 保存对话历史
             memoryManager.saveUserMessage(conversationId, request.getMessage());
 
             traceService.addSpan(traceId, "intent_recognition", Map.of("message", request.getMessage()));
@@ -118,8 +129,11 @@ public class AgentOrchestrator {
                 ragContext = performRAG(request.getMessage(), sources, traceId);
             }
 
+            // 合并上下文
+            String context = mergeContext(memoryContext, ragContext);
+
             traceService.addSpan(traceId, "agent_stream_execution", Map.of("mode", mode.name(), "intent", intent.getIntentType()));
-            String promptText = buildDirectPrompt(request.getMessage(), ragContext);
+            String promptText = buildDirectPrompt(request.getMessage(), context);
             String forceModel = request.getModelOptions() != null ? request.getModelOptions().getModel() : null;
 
             return modelRouter.stream(new Prompt(promptText), forceModel)
@@ -227,6 +241,23 @@ public class AgentOrchestrator {
         return ChatResponse.builder()
                 .reply("")
                 .build();
+    }
+
+    /**
+     * 合并记忆召回上下文与 RAG 检索上下文
+     */
+    private String mergeContext(String memoryContext, String ragContext) {
+        StringBuilder merged = new StringBuilder();
+        if (memoryContext != null && !memoryContext.isBlank()) {
+            merged.append(memoryContext);
+        }
+        if (ragContext != null && !ragContext.isBlank()) {
+            if (merged.length() > 0) {
+                merged.append("\n\n");
+            }
+            merged.append(ragContext);
+        }
+        return merged.toString();
     }
 
     private String buildDirectPrompt(String message, String context) {

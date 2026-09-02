@@ -32,6 +32,8 @@ public class MemoryManager {
     private boolean longTermEnabled;
     @Value("${agent.memory.short-term.max-turns:20}")
     private int maxTurns;
+    @Value("${agent.memory.long-term.top-k:3}")
+    private int longTermTopK;
 
     /**
      * 保存用户消息
@@ -48,32 +50,41 @@ public class MemoryManager {
     }
 
     /**
-     * 构建 LLM 请求所需的消息上下文
-     * 组装顺序：系统提示 + 历史对话
-     *
-     * @param conversationId 会话 ID
-     * @param systemPrompt   系统提示
-     * @return 消息列表
+     * 召回记忆上下文
+     * 组装顺序：近期对话历史 + 长期记忆
      */
-    public List<Message> buildContext(String conversationId, String systemPrompt) {
-        List<Message> messages = new ArrayList<>();
-        messages.add(new SystemMessage(systemPrompt));
+    public String recallMemoryContext(String conversationId, String query) {
+        StringBuilder context = new StringBuilder();
 
+        // 短期记忆召回：最近对话历史
         List<String> history = shortTermMemory.getRecentHistory(conversationId, maxTurns);
-        for(String entry : history) {
-            int separator = entry.indexOf(":");
-            if (separator<=0) continue;
-            String role = entry.substring(0, separator);
-            String content = entry.substring(separator + 1);
-            if("user".equals(role)) {
-                messages.add(new UserMessage(entry));
-            }
-            else if ("assistant".equals(role)) {
-                messages.add(new AssistantMessage(content));
+        if (!history.isEmpty()) {
+            context.append("近期对话历史：\n");
+            for (String entry : history) {
+                int separator = entry.indexOf(":");
+                if (separator <= 0) continue;
+                String role = entry.substring(0, separator);
+                String content = entry.substring(separator + 1);
+                context.append("user".equals(role) ? "用户: " : "助手: ").append(content).append("\n");
             }
         }
 
-        return messages;
+        // 长期记忆召回：向量检索相关摘要
+        if (longTermEnabled) {
+            try {
+                List<String> memories = longTermMemory.recallByQuery(query, longTermTopK);
+                if (!memories.isEmpty()) {
+                    context.append("\n相关长期记忆：\n");
+                    for (String memory : memories) {
+                        context.append("- ").append(memory).append("\n");
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("长期记忆召回失败: conversationId={}", conversationId, e);
+            }
+        }
+
+        return context.toString();
     }
 
     /**
