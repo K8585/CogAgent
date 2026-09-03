@@ -64,7 +64,7 @@ public class LongTermMemory {
         if (vector == null || vector.length == 0) {
             throw new IllegalStateException("长期记忆向量化结果为空");
         }
-        milvusService.insertVectors(List.of(memoryId), List.of("memory-" + conversationId),
+        milvusService.insertMemoryVectors(List.of(memoryId), List.of(conversationId),
                 List.of("long-memory"), List.of(toFloatList(vector)), List.of(summary));
 
         redisCacheService.set(SUMMARY_KEY_PREFIX + conversationId, summary, Duration.ofDays(30));
@@ -83,7 +83,7 @@ public class LongTermMemory {
         if (summary == null || summary.isBlank() || embedding == null || embedding.isEmpty()) return;
 
         String memoryId = "memory-" + UUID.randomUUID().toString().replace("-", "");
-        milvusService.insertVectors(List.of(memoryId), List.of("memory-" + conversationId),
+        milvusService.insertMemoryVectors(List.of(memoryId), List.of(conversationId),
                 List.of("long-memory"), List.of(embedding), List.of(summary));
 
         redisCacheService.set(
@@ -100,22 +100,26 @@ public class LongTermMemory {
      *
      * @param queryEmbedding 查询向量
      * @param topK           返回数量
+     * @param conversationId 会话 ID
      * @return 搜索结果
      */
-    public SearchResults recall(List<Float> queryEmbedding, int topK) {
-        log.debug("检索长期记忆: topK={}", topK);
-        return milvusService.searchSimilar(queryEmbedding, topK);
+    public SearchResults recall(List<Float> queryEmbedding, int topK, String conversationId) {
+        log.debug("检索长期记忆: conversationId={}, topK={}", conversationId, topK);
+        return milvusService.searchMemorySimilar(queryEmbedding, topK, conversationId);
     }
 
     /**
      * 根据查询内容召回相关的长期记忆
      *
-     * @param query 查询文本
-     * @param topK  返回数量
+     * @param conversationId 会话 ID
+     * @param query          查询文本
+     * @param topK           返回数量
      * @return 召回的长期记忆内容列表
      */
-    public List<String> recallByQuery(String query, int topK) {
-        if (query == null || query.isBlank()) return List.of();
+    public List<String> recallByQuery(String conversationId, String query, int topK) {
+        if (conversationId == null || conversationId.isBlank() || query == null || query.isBlank()) {
+            return List.of();
+        }
 
         float[] values = embeddingModel.embed(query);
         List<Float> vector = new ArrayList<>(values.length);
@@ -123,7 +127,7 @@ public class LongTermMemory {
             vector.add(value);
         }
 
-        return parseContents(recall(vector, topK));
+        return parseContents(recall(vector, topK, conversationId));
     }
 
     /**

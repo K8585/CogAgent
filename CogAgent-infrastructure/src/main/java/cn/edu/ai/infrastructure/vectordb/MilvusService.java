@@ -4,6 +4,7 @@ import cn.edu.ai.infrastructure.config.MilvusConfig;
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.grpc.MutationResult;
 import io.milvus.grpc.SearchResults;
+import io.milvus.param.MetricType;
 import io.milvus.param.R;
 import io.milvus.param.dml.InsertParam;
 import io.milvus.param.dml.SearchParam;
@@ -26,7 +27,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @ConditionalOnProperty(name = "milvus.enabled", havingValue = "true")
-@DependsOn("agentDocumentsCollection")
+@DependsOn("agentMilvusCollections")
 public class MilvusService {
 
     private final MilvusServiceClient milvusClient;
@@ -54,7 +55,7 @@ public class MilvusService {
         fields.add(new InsertParam.Field("embedding", vectors));
 
         InsertParam insertParam = InsertParam.newBuilder()
-                .withCollectionName(milvusConfig.getCollectionName())
+                .withCollectionName(milvusConfig.getDocumentsCollectionName())
                 .withFields(fields)
                 .build();
 
@@ -66,7 +67,35 @@ public class MilvusService {
         }
 
         long count = response.getData().getInsertCnt();
-        log.info("成功插入 {} 条向量到集合 {}", count, milvusConfig.getCollectionName());
+        log.info("成功插入 {} 条向量到集合 {}", count, milvusConfig.getDocumentsCollectionName());
+        return count;
+    }
+
+    public long insertMemoryVectors(List<String> memoryIds, List<String> conversationIds,
+                                    List<String> sources, List<List<Float>> vectors,
+                                    List<String> contents) {
+        List<InsertParam.Field> fields = new ArrayList<>();
+        fields.add(new InsertParam.Field("chunk_id", memoryIds));
+        fields.add(new InsertParam.Field("doc_id", memoryIds));
+        fields.add(new InsertParam.Field("source", sources));
+        fields.add(new InsertParam.Field("content", contents));
+        fields.add(new InsertParam.Field("conversation_id", conversationIds));
+        fields.add(new InsertParam.Field("embedding", vectors));
+
+        InsertParam insertParam = InsertParam.newBuilder()
+                .withCollectionName(milvusConfig.getMemoriesCollectionName())
+                .withFields(fields)
+                .build();
+
+        R<MutationResult> response = milvusClient.insert(insertParam);
+
+        if (response.getStatus() != R.Status.Success.getCode()) {
+            log.error("Milvus 长期记忆插入失败: {}", response.getMessage());
+            throw new RuntimeException("长期记忆插入失败: " + response.getMessage());
+        }
+
+        long count = response.getData().getInsertCnt();
+        log.info("成功插入 {} 条长期记忆到集合 {}", count, milvusConfig.getMemoriesCollectionName());
         return count;
     }
 
@@ -79,8 +108,8 @@ public class MilvusService {
      */
     public SearchResults searchSimilar(List<Float> queryVector, int topK) {
         SearchParam searchParam = SearchParam.newBuilder()
-                .withCollectionName(milvusConfig.getCollectionName())
-                .withMetricType(io.milvus.param.MetricType.COSINE)
+                .withCollectionName(milvusConfig.getDocumentsCollectionName())
+                .withMetricType(MetricType.COSINE)
                 .withOutFields(List.of("doc_id", "content"))    // 除了返回的向量本身，附带的两个返回值
                 .withTopK(topK)
                 .withVectors(Collections.singletonList(queryVector))
@@ -99,6 +128,27 @@ public class MilvusService {
         return response.getData();
     }
 
+    public SearchResults searchMemorySimilar(List<Float> queryVector, int topK, String conversationId) {
+        SearchParam searchParam = SearchParam.newBuilder()
+                .withCollectionName(milvusConfig.getMemoriesCollectionName())
+                .withMetricType(MetricType.COSINE)
+                .withOutFields(List.of("doc_id", "content", "conversation_id"))
+                .withTopK(topK)
+                .withVectors(Collections.singletonList(queryVector))
+                .withVectorFieldName("embedding")
+                .withParams("{\"nprobe\": 16}")
+                .withExpr("conversation_id == \"" + conversationId + "\"")
+                .build();
 
+        R<SearchResults> response = milvusClient.search(searchParam);
+
+        if (response.getStatus() != R.Status.Success.getCode()) {
+            log.error("Milvus 长期记忆搜索失败: {}", response.getMessage());
+            throw new RuntimeException("长期记忆搜索失败: " + response.getMessage());
+        }
+
+        log.debug("长期记忆搜索完成，conversationId={}, 返回 {} 条结果", conversationId, topK);
+        return response.getData();
+    }
 
 }

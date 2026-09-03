@@ -72,7 +72,7 @@ public class MemoryManager {
         // 长期记忆召回：向量检索相关摘要
         if (longTermEnabled && history.size() >= maxTurns * 2) {
             try {
-                List<String> memories = longTermMemory.recallByQuery(query, longTermTopK);
+                List<String> memories = longTermMemory.recallByQuery(conversationId, query, longTermTopK);
                 if (!memories.isEmpty()) {
                     context.append("\n相关长期记忆：\n");
                     for (String memory : memories) {

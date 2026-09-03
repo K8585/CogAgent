@@ -15,12 +15,13 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
  * Milvus 配置类
- * 在首次启动时创建文档集合和向量索引
+ * 在首次启动时创建文档集合、记忆集合和向量索引
  */
 @Slf4j
 @Getter
@@ -32,8 +33,10 @@ public class MilvusConfig {
     private String host;
     @Value("${milvus.port:19530}")
     private int port;
-    @Value("${milvus.collection-name:agent_documents}")
-    private String collectionName;
+    @Value("${milvus.documents-collection-name:documents}")
+    private String documentsCollectionName;
+    @Value("${milvus.memories-collection-name:memories}")
+    private String memoriesCollectionName;
     @Value("${milvus.dimension:1024}")
     private int dimension;
 
@@ -48,10 +51,16 @@ public class MilvusConfig {
     }
 
     /**
-     * 在首次启动时创建文档集合和向量索引
+     * 在首次启动时创建文档集合、记忆集合和向量索引
      */
     @Bean
-    public Boolean agentDocumentsCollection(MilvusServiceClient client) {
+    public Boolean agentMilvusCollections(MilvusServiceClient client) {
+        ensureCollection(client, documentsCollectionName, "Agent 文档分块", false);
+        ensureCollection(client, memoriesCollectionName, "Agent 长期记忆", true);
+        return Boolean.TRUE;
+    }
+
+    private void ensureCollection(MilvusServiceClient client, String collectionName, String description, boolean memoryCollection) {
         R<Boolean> exists = client.hasCollection(HasCollectionParam.newBuilder()
                 .withCollectionName(collectionName)
                 .build());
@@ -64,19 +73,9 @@ public class MilvusConfig {
             // 创建集合
             R<RpcStatus> created = client.createCollection(CreateCollectionParam.newBuilder()
                     .withCollectionName(collectionName)
-                    .withDescription("Agent 文档分块")
+                    .withDescription(description)
                     .withShardsNum(2)
-                    .withFieldTypes(List.of(
-                            FieldType.newBuilder().withName("chunk_id").withDataType(DataType.VarChar)
-                                    .withMaxLength(64).withPrimaryKey(true).withAutoID(false).build(),
-                            FieldType.newBuilder().withName("doc_id").withDataType(DataType.VarChar)
-                                    .withMaxLength(64).build(),
-                            FieldType.newBuilder().withName("source").withDataType(DataType.VarChar)
-                                    .withMaxLength(512).build(),
-                            FieldType.newBuilder().withName("content").withDataType(DataType.VarChar)
-                                    .withMaxLength(65535).build(),
-                            FieldType.newBuilder().withName("embedding").withDataType(DataType.FloatVector)
-                                    .withDimension(dimension).build()))
+                    .withFieldTypes(buildFieldTypes(memoryCollection))
                     .build());
             if (created.getStatus() != R.Status.Success.getCode()) {
                 throw new IllegalStateException("无法创建 Milvus 集合, status=" + created.getStatus());
@@ -111,7 +110,24 @@ public class MilvusConfig {
         } else {
             log.info("Milvus 集合 {} 已加载到内存", collectionName);
         }
+    }
 
-        return Boolean.TRUE;
+    private List<FieldType> buildFieldTypes(boolean memoryCollection) {
+        List<FieldType> fields = new ArrayList<>(List.of(
+                FieldType.newBuilder().withName("chunk_id").withDataType(DataType.VarChar)
+                        .withMaxLength(64).withPrimaryKey(true).withAutoID(false).build(),
+                FieldType.newBuilder().withName("doc_id").withDataType(DataType.VarChar)
+                        .withMaxLength(64).build(),
+                FieldType.newBuilder().withName("source").withDataType(DataType.VarChar)
+                        .withMaxLength(512).build(),
+                FieldType.newBuilder().withName("content").withDataType(DataType.VarChar)
+                        .withMaxLength(65535).build()));
+        if (memoryCollection) {
+            fields.add(FieldType.newBuilder().withName("conversation_id").withDataType(DataType.VarChar)
+                    .withMaxLength(128).build());
+        }
+        fields.add(FieldType.newBuilder().withName("embedding").withDataType(DataType.FloatVector)
+                .withDimension(dimension).build());
+        return fields;
     }
 }

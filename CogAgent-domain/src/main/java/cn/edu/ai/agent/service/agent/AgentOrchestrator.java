@@ -210,29 +210,29 @@ public class AgentOrchestrator {
     /**
      * 根据模式分发到对应的 Agent
      */
-    private ChatResponse dispatchToAgent(AgentMode mode, ChatRequest request, String ragContext, String traceId) {
+    private ChatResponse dispatchToAgent(AgentMode mode, ChatRequest request, String context, String traceId) {
         if(mode.equals(AgentMode.REACT)) {
-            ReActAgent.ReActResult result = reActAgent.execute(request.getMessage(), ragContext, request.getTools(), traceId);
+            ReActAgent.ReActResult result = reActAgent.execute(request.getMessage(), context, request.getTools(), traceId);
             return ChatResponse.builder()
                     .reply(result.getFinalAnswer())
                     .thinkingSteps(result.getThinkingSteps())
                     .usedTools(result.getUsedTools())
                     .build();
         } else if(mode.equals(AgentMode.PLANNER)) {
-            PlannerAgent.PlanResult result = plannerAgent.execute(request.getMessage(), ragContext, request.getTools(), traceId);
+            PlannerAgent.PlanResult result = plannerAgent.execute(request.getMessage(), context, request.getTools(), traceId);
             return ChatResponse.builder()
                     .reply(result.getFinalAnswer())
                     .thinkingSteps(result.getThinkingSteps())
                     .usedTools(result.getUsedTools())
                     .build();
         } else if(mode.equals(AgentMode.REFLECTION)) {
-            ReflectionAgent.ReflectionResult result = reflectionAgent.execute(request.getMessage(), ragContext, traceId);
+            ReflectionAgent.ReflectionResult result = reflectionAgent.execute(request.getMessage(), context, traceId);
             return ChatResponse.builder()
                     .reply(result.getFinalAnswer())
                     .thinkingSteps(result.getThinkingSteps())
                     .build();
         } else if(mode.equals(AgentMode.DIRECT)) {
-            String reply = directChat(request.getMessage(), ragContext);
+            String reply = directChat(request.getMessage(), context);
             return ChatResponse.builder()
                     .reply(reply)
                     .build();
@@ -249,12 +249,14 @@ public class AgentOrchestrator {
     private String mergeContext(String memoryContext, String ragContext) {
         StringBuilder merged = new StringBuilder();
         if (memoryContext != null && !memoryContext.isBlank()) {
+            merged.append("对话历史 (供参考)：\n");
             merged.append(memoryContext);
         }
         if (ragContext != null && !ragContext.isBlank()) {
             if (merged.length() > 0) {
                 merged.append("\n\n");
             }
+            merged.append("知识库检索结果 (权威知识源)：\n");
             merged.append(ragContext);
         }
         return merged.toString();

@@ -75,7 +75,8 @@ milvus:
   enabled: true
   host: ${MILVUS_HOST:localhost}
   port: ${MILVUS_PORT:19530}
-  collection-name: ${MILVUS_COLLECTION:agent_documents}
+  documents-collection-name: ${MILVUS_DOCUMENTS_COLLECTION:documents}
+  memories-collection-name: ${MILVUS_MEMORIES_COLLECTION:memories}
   dimension: ${MILVUS_DIMENSION:1024}
   index-type: IVF_FLAT
   metric-type: COSINE
