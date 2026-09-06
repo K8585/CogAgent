@@ -164,9 +164,9 @@ public class AgentOrchestrator {
     /**
      * 直接对话模式（不经过 Agent 编排）
      */
-    private String directChat(String message, String context) {
+    private String directChat(String message, String context, String forceModel) {
         String promptText = buildDirectPrompt(message, context);
-        return modelRouter.call(new Prompt(promptText), null).getResult().getOutput().getText();
+        return modelRouter.call(new Prompt(promptText), forceModel).getResult().getOutput().getText();
     }
 
     /**
@@ -211,28 +211,30 @@ public class AgentOrchestrator {
      * 根据模式分发到对应的 Agent
      */
     private ChatResponse dispatchToAgent(AgentMode mode, ChatRequest request, String context, String traceId) {
+        String forceModel = request.getModelOptions() != null ? request.getModelOptions().getModel() : null;
+
         if(mode.equals(AgentMode.REACT)) {
-            ReActAgent.ReActResult result = reActAgent.execute(request.getMessage(), context, request.getTools(), traceId);
+            ReActAgent.ReActResult result = reActAgent.execute(request.getMessage(), context, request.getTools(), traceId, forceModel);
             return ChatResponse.builder()
                     .reply(result.getFinalAnswer())
                     .thinkingSteps(result.getThinkingSteps())
                     .usedTools(result.getUsedTools())
                     .build();
         } else if(mode.equals(AgentMode.PLANNER)) {
-            PlannerAgent.PlanResult result = plannerAgent.execute(request.getMessage(), context, request.getTools(), traceId);
+            PlannerAgent.PlanResult result = plannerAgent.execute(request.getMessage(), context, request.getTools(), traceId, forceModel);
             return ChatResponse.builder()
                     .reply(result.getFinalAnswer())
                     .thinkingSteps(result.getThinkingSteps())
                     .usedTools(result.getUsedTools())
                     .build();
         } else if(mode.equals(AgentMode.REFLECTION)) {
-            ReflectionAgent.ReflectionResult result = reflectionAgent.execute(request.getMessage(), context, traceId);
+            ReflectionAgent.ReflectionResult result = reflectionAgent.execute(request.getMessage(), context, traceId, forceModel);
             return ChatResponse.builder()
                     .reply(result.getFinalAnswer())
                     .thinkingSteps(result.getThinkingSteps())
                     .build();
         } else if(mode.equals(AgentMode.DIRECT)) {
-            String reply = directChat(request.getMessage(), context);
+            String reply = directChat(request.getMessage(), context, forceModel);
             return ChatResponse.builder()
                     .reply(reply)
                     .build();

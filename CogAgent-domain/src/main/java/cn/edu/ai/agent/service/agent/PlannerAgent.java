@@ -83,13 +83,13 @@ public class PlannerAgent {
     /**
      * 执行 Plan-and-Execute
      */
-    public PlanResult execute(String query, String context, List<String> availableTools, String traceId) {
+    public PlanResult execute(String query, String context, List<String> availableTools, String traceId, String forceModel) {
         log.info("Planner Agent 开始执行: query={}", query);
 
         String toolDescriptions = toolRegistry.buildToolDescriptions(availableTools);
 
         traceService.addSpan(traceId, "planner_planning", Map.of("query", query));
-        List<PlanStep> plan = generatePlan(query, context, toolDescriptions);
+        List<PlanStep> plan = generatePlan(query, context, toolDescriptions, forceModel);
         log.info("生成执行计划，共 {} 个步骤", plan.size());
 
         List<ChatResponse.ThinkingStep> thinkingSteps = new ArrayList<>();
@@ -134,10 +134,10 @@ public class PlannerAgent {
                 .build();
     }
 
-    private List<PlanStep> generatePlan(String query, String context, String toolDescriptions) {
+    private List<PlanStep> generatePlan(String query, String context, String toolDescriptions, String forceModel) {
         String safeContext = context != null ? context : "无历史上下文";
         String promptText = String.format(PLAN_PROMPT, toolDescriptions, query, safeContext);
-        String llmOutput = modelRouter.call(new Prompt(promptText), null).getResult().getOutput().getText();
+        String llmOutput = modelRouter.call(new Prompt(promptText), forceModel).getResult().getOutput().getText();
 
         List<PlanStep> steps = new ArrayList<>();
         Matcher matcher = STEP_PATTERN.matcher(llmOutput);

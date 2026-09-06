@@ -83,7 +83,7 @@ public class ReActAgent {
      * 执行 ReAct 循环
      * 返回包含思考过程的完整响应
      */
-    public ReActResult execute(String query, String context, List<String> availableTools, String traceId) {
+    public ReActResult execute(String query, String context, List<String> availableTools, String traceId, String forceModel) {
         log.info("ReAct Agent 开始执行: query={}", query);
 
         String toolDescriptions = toolRegistry.buildToolDescriptions(availableTools);
@@ -105,7 +105,7 @@ public class ReActAgent {
             traceService.addSpan(traceId, "react_iteration_" + (i + 1), Map.of("iteration", i + 1));
 
             String fullPrompt = systemPrompt + "\n\n" + conversationBuffer;
-            String llmOutput = modelRouter.call(new Prompt(fullPrompt),null).getResult().getOutput().getText();
+            String llmOutput = modelRouter.call(new Prompt(fullPrompt),forceModel).getResult().getOutput().getText();
             log.debug("LLM 输出:\n{}", llmOutput);
 
             Matcher thoughtMatcher = THOUGHT_PATTERN.matcher(llmOutput);

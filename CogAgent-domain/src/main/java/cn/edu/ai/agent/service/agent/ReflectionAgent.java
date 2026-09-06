@@ -79,7 +79,7 @@ public class ReflectionAgent {
     /**
      * 执行反思循环
      */
-    public ReflectionResult execute(String query, String context, String traceId) {
+    public ReflectionResult execute(String query, String context, String traceId, String forceModel) {
         log.info("Reflection Agent 开始执行: query={}", query);
 
         List<ChatResponse.ThinkingStep> thinkingSteps = new ArrayList<>();
@@ -90,7 +90,7 @@ public class ReflectionAgent {
 
         traceService.addSpan(traceId, "reflection_initial", Map.of("query", query));
         String prompt = String.format(INITIAL_PROMPT, contextStr, query);
-        String currentAnswer = modelRouter.call(new Prompt(prompt), null).getResult().getOutput().getText();
+        String currentAnswer = modelRouter.call(new Prompt(prompt), forceModel).getResult().getOutput().getText();
         thinkingSteps.add(ChatResponse.ThinkingStep.builder()
                 .step(1)
                 .thought("生成初始回答")
