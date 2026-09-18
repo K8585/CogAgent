@@ -14,3 +14,9 @@ pnpm-debug.log*
 # 本地环境变量：代理目标、后端地址等，避免把内网地址提交上去
 .env.local
 .env.*.local
+
+# Vite 依赖预构建缓存
+.vite/
+**/vite/deps/
+**/vite/deps_temp*/
+**/vite/deps_ssr/
