@@ -33,6 +33,7 @@
         <mybatis-plus.version>3.5.7</mybatis-plus.version>
         <milvus-sdk.version>2.4.3</milvus-sdk.version>
         <hutool.version>5.8.28</hutool.version>
+        <commons-compress.version>1.26.2</commons-compress.version>
     </properties>
 
     <dependencyManagement>
@@ -43,6 +44,11 @@
                 <version>${spring-ai.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-compress</artifactId>
+                <version>${commons-compress.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

@@ -1,0 +1,16 @@
+node_modules/
+dist/
+dist-ssr/
+*.local
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.log
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 本地环境变量：代理目标、后端地址等，避免把内网地址提交上去
+.env.local
+.env.*.local

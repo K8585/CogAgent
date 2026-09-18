@@ -1,0 +1,93 @@
+/* ============================================================================
+   设计令牌 · 青瓷墨线
+   ----------------------------------------------------------------------------
+   取色逻辑：
+     页面是「纸」——微冷的中性灰，不是暖奶油色（后者是当前 AI 生成物的高频色）。
+     结构靠 1px 发丝线与对齐网格承担，不用投影、不用渐变、不用彩色卡片。
+     青瓷墨绿只标记「当前 / 激活」，赭黄只标记「进行中 / 降级」，铁锈红只标记「失败」。
+     其余的墨与灰，全部用来安放信息本身。
+   ========================================================================== */
+
+:root {
+  /* —— 底面 —— */
+  --paper: #f3f4f2;
+  --surface: #ffffff;
+  --surface-sunk: #eceeea;
+
+  /* —— 墨色（文本层级） —— */
+  --ink: #171a1c;
+  --ink-2: #565c5a;
+  --ink-3: #838885;
+  --ink-4: #adb1ae;
+
+  /* —— 线：全部分区由它承担 —— */
+  --rule: #dfe1dc;
+  --rule-strong: #c7cac4;
+
+  /* —— 主色：青瓷墨绿 —— */
+  --celadon: #10635a;
+  --celadon-deep: #0a4a43;
+  --celadon-mist: #e3edea;
+
+  /* —— 副色：赭黄（进行中 / 降级 / 熔断） —— */
+  --ochre: #a86e14;
+  --ochre-mist: #f5ebd7;
+
+  /* —— 失败：铁锈红 —— */
+  --rust: #9d332a;
+  --rust-mist: #f6e7e4;
+
+  /* —— 排版 —— */
+  /* 中文优先走系统字体栈：思源 / 苹方 / 微软雅黑。
+     刻意不引 Google Fonts —— 国内网络不可达，会导致首屏字体闪烁甚至空白。 */
+  --font-sans: "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei",
+    "Source Han Sans SC", "Noto Sans SC", "Hiragino Sans GB", system-ui,
+    -apple-system, "Segoe UI", sans-serif;
+  /* 等宽用于：数字、ID、traceId、工具名、模式名 —— 一切需要纵向对齐的信息 */
+  --font-mono: "JetBrains Mono", "Cascadia Mono", "Cascadia Code", Consolas,
+    "SF Mono", ui-monospace, "Courier New", monospace;
+
+  /* 字号阶梯，约 1.2 倍比；13px 是正文密度基准，工程界面不需要 16px 起跳 */
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-lg: 14px;
+  --fs-xl: 16px;
+  --fs-2xl: 21px;
+  --fs-3xl: 30px;
+
+  --lh-tight: 1.3;
+  --lh-body: 1.72; /* 中文正文比拉丁文需要更松的行高 */
+
+  /* —— 圆角：克制到几乎看不见 —— */
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius: 4px;
+  --radius-lg: 6px;
+
+  /* —— 尺度 —— */
+  --topbar-h: 48px;
+  --rail-w: 236px; /* 对话页左侧会话栏 */
+  --aside-w: 292px; /* 对话页右侧运行参数 */
+
+  /* 唯一的投影，只给真正浮起来的层（下拉、抽屉）用 */
+  --shadow-pop: 0 6px 20px rgba(23, 26, 28, 0.1),
+    0 1px 2px rgba(23, 26, 28, 0.06);
+
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+/* 尊重系统的减弱动效设置：所有过渡与动画一律退化为瞬时 */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ease: linear;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
